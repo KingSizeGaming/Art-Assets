@@ -4,7 +4,6 @@ import streamlit as st
 from datetime import datetime
 
 
-# Your Dropbox access token
 ACCESS_TOKEN = 'sl.BzCMPcRbATZLMxeR7rvd1EDYvyZl2fJQnE2SqieakqxBEKKnfipUSmxUzeLdYs7U6i7_ZDrLMFvGQ_yAZ_kiKRI4D_qqlCDt8tZDNLT8Eklfxb9ujpZBJFF-zKdbhCaA_5WlAfkFzD8WHfQBc_CyT8A'
 
 def dropbox_connect():
