@@ -14,33 +14,33 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 ACCESS_TOKEN = st.secrets["dropbox_access_token"]
 
-def login():
-    if 'user' not in st.session_state:
-        st.session_state['user'] = None
 
-    if st.session_state['user'] is None:
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
+if 'user' not in st.session_state:
+    st.session_state['user'] = None
+if 'token' not in st.session_state:
+    st.session_state['token'] = None
 
-        if st.button("Sign in"):
-            response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            st.session_state['token'] = supabase.auth.get_session().access_token
-            user = supabase.auth.get_user(st.session_state['token'])
+# Display the login form only if the user is not authenticated
+if st.session_state['user'] is None:
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
-            if user is None:
-                st.error("Invalid email or password")
-            else:
-                st.session_state['user'] = user
-                st.success("Sign in successfully")
-                st.experimental_rerun()  # Rerun the script to reflect the new login state
+    if st.button("Sign in"):
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state['token'] = supabase.auth.get_session().access_token
+        user = supabase.auth.get_user(st.session_state['token'])
 
-login()
-
-
+        if user is None:
+            st.error("Invalid email or password")
+        else:
+            st.session_state['user'] = user
+            st.success("Sign in successfully")
+            st.experimental_rerun()  # Rerun the script to reflect the new login state
             
 
-
+# If the user is authenticated, show other parts of the app or a logout option
 if st.session_state['user'] is not None:
+
 
     def dropbox_connect():
         """Create a Dropbox client instance."""
