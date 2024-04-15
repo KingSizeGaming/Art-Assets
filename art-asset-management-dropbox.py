@@ -157,7 +157,7 @@ if st.session_state['user'] is not None:
             mime="application/octet-stream",
         )
     def render_download_tab(games_path):
-        """Render the download tab with file selection and preview/download options.vv"""
+        """Render the download tab with file selection and preview/download options."""
         st.header("Download Asset")
         selected_file_path = render_file_selection(games_path)
         if selected_file_path:  # Make sure a path is selected
