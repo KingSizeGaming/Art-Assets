@@ -15,12 +15,13 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ACCESS_TOKEN = st.secrets["dropbox_access_token"]
 
 
+
 if 'user' not in st.session_state:
     st.session_state['user'] = None
 if 'token' not in st.session_state:
     st.session_state['token'] = None
 
-# Display the login form only if the user is not authenticated
+# Display the login form only if the user is not authenticated, maybe?
 if st.session_state['user'] is None:
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
@@ -29,22 +30,63 @@ if st.session_state['user'] is None:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state['token'] = supabase.auth.get_session().access_token
         user = supabase.auth.get_user(st.session_state['token'])
+        user_data = user.user  # Access the user attribute from the Pydantic model
+        if user_data:
+            st.session_state['user'] = user_data
+            user_email = user_data.email  # Now accessing email directly
+            st.session_state['email'] = user_email  # Storing email in session state
+            st.success("Sign in successfully")
+            print(f"Welcome, {user_email}!")
+        else:
+            print("User data not found in response.")
+
+    
 
         if user is None:
             st.error("Invalid email or password")
         else:
             st.session_state['user'] = user
             st.success("Sign in successfully")
-            st.experimental_rerun()  # Rerun the script to reflect the new login state
+ 
+            st.rerun() 
             
 
-# If the user is authenticated, show other parts of the app or a logout option
+# If the user is authenticated, the app will show
 if st.session_state['user'] is not None:
 
 
     def dropbox_connect():
         """Create a Dropbox client instance."""
         return dropbox.Dropbox(ACCESS_TOKEN)
+    
+    def log_activity(user_email, action_type, asset_name):
+        """Logs user activity to the Supabase table."""
+        print("User Token:", st.session_state['token'])
+
+        record = {
+            "user_email": user_email,
+            "action_type": action_type,
+            "asset_name": asset_name,
+ 
+        }
+        try:
+            supabase.table("activity_log").insert(record).execute()
+        except Exception as e:
+            st.error(f"Error logging activity: {e}")
+
+    def show_activity_log():
+        """Show the activity log."""
+        st.subheader("Activity Log")
+        try:
+            response = supabase.table("activity_log").select("*").execute()
+            if response.data:
+                st.table(response.data)  # Display the data in a table format
+            else:
+                st.write("No activity log entries found.")
+        except Exception as e:
+            st.error(f"Error fetching activity log: {e}")
+
+
     def dropbox_upload_file(local_file_path, dropbox_folder_path):
         """Upload a file to Dropbox from a local path, with an attempt at versioning to avoid overwrites."""
         dbx = dropbox_connect()
@@ -62,6 +104,7 @@ if st.session_state['user'] is not None:
                     f.read(), versioned_dropbox_path, mode=dropbox.files.WriteMode.add
                 )
                 st.success(f"File uploaded successfully to {versioned_dropbox_path}")
+                log_activity(supabase.auth.get_user(st.session_state['token']).user.email, "upload", file_name)
                 return meta
         except Exception as e:
             st.error(f"Error uploading file to Dropbox: {e}")
@@ -104,6 +147,7 @@ if st.session_state['user'] is not None:
         selected_version = st.selectbox("Select the asset version to download:", versions)
         version_path = f"{asset_path}/{selected_version}"
         return version_path
+    
     def download_button(file_bytes, file_name, button_text):
         """Generate a download button for the given file."""
         st.download_button(
@@ -126,6 +170,7 @@ if st.session_state['user'] is not None:
             # Download
             download_button(res.content, selected_file_path.split("/")[-1], "Download")
     def render_dropbox_explorer():
+
         """Render the Dropbox explorer for uploading files."""
         folder_options = [
             "game1",
@@ -142,12 +187,19 @@ if st.session_state['user'] is not None:
                 f.write(uploaded_file.getvalue())
             dropbox_upload_file(temp_file_path, dropbox_file_path)
             pathlib.Path(temp_file_path).unlink(missing_ok=True)
+
     def asset_management_dashboard():
         """Render the asset management dashboard (placeholder)."""
-        st.subheader("Asset Management Dashboard")
-        st.write("Asset management dashboard functionality goes here.")
+        # Show activity log section
+        show_activity_log()
+
+ 
+    
+
+
     if __name__ == "__main__":
         st.title("Dropbox Asset Manager")
+        st.write("Signed in as:", supabase.auth.get_user(st.session_state['token']).user.email)
         tab1, tab2, tab3 = st.tabs(
             ["Upload Asset", "Download Asset", "Asset Management Dashboard"]
         )
