@@ -52,7 +52,7 @@ if st.session_state['user'] is not None:
 
 
     def dropbox_connect():
-        """Create a Dropbox client instance using the refresh token."""
+        """Create a Dropbox client instance using the refresh token. CMON"""
         if 'dbx_client' not in st.session_state or st.session_state['dbx_client'] is None:
             st.session_state['dbx_client'] = dropbox.Dropbox(
                 oauth2_refresh_token=st.secrets["dropbox_refresh_token"],
