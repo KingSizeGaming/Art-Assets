@@ -12,10 +12,6 @@ SUPABASE_KEY = st.secrets["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-ACCESS_TOKEN = st.secrets["dropbox_access_token"]
-
-
-
 if 'user' not in st.session_state:
     st.session_state['user'] = None
 if 'token' not in st.session_state:
@@ -56,12 +52,20 @@ if st.session_state['user'] is not None:
 
 
     def dropbox_connect():
-        """Create a Dropbox client instance."""
-        return dropbox.Dropbox(ACCESS_TOKEN)
+        """Create a Dropbox client instance using the refresh token."""
+        if 'dbx_client' not in st.session_state or st.session_state['dbx_client'] is None:
+            st.session_state['dbx_client'] = dropbox.Dropbox(
+                oauth2_refresh_token=st.secrets["dropbox_refresh_token"],
+                app_key=st.secrets["app_key"],
+                app_secret=st.secrets["app_secret"]
+            )
+        return st.session_state['dbx_client']
+
+
+
     
     def log_activity(user_email, action_type, asset_name):
         """Logs user activity to the Supabase table."""
-        print("User Token:", st.session_state['token'])
 
         record = {
             "user_email": user_email,
