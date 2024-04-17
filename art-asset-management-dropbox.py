@@ -6,6 +6,7 @@ from io import BytesIO
 from PIL import Image
 import base64
 from supabase import create_client, Client
+import os
 
 SUPABASE_URL = st.secrets["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase_key"]
@@ -102,17 +103,35 @@ if st.session_state['user'] is not None:
         versioned_dropbox_path = f"{dropbox_folder_path}/{versioned_file_name}".replace(
             "\\", "/"
         )
+        CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB chunk size
+        file_size = os.path.getsize(local_file_path)
         try:
             with open(local_file_path, "rb") as f:
-                meta = dbx.files_upload(
-                    f.read(), versioned_dropbox_path, mode=dropbox.files.WriteMode.add
-                )
+                if file_size <= CHUNK_SIZE:
+                    # File is small enough to upload as a single chunk
+                    meta = dbx.files_upload(f.read(), versioned_dropbox_path, mode=dropbox.files.WriteMode.add)
+                else:
+                    # Perform a chunked upload session
+                    upload_session_start_result = dbx.files_upload_session_start(f.read(CHUNK_SIZE))
+                    cursor = dropbox.files.UploadSessionCursor(session_id=upload_session_start_result.session_id, offset=f.tell())
+                    commit = dropbox.files.CommitInfo(path=versioned_dropbox_path)
+
+                    while f.tell() < file_size:
+                        if (file_size - f.tell()) <= CHUNK_SIZE:
+                            print(dbx.files_upload_session_finish(f.read(CHUNK_SIZE), cursor, commit))
+                        else:
+                            dbx.files_upload_session_append_v2(f.read(CHUNK_SIZE), cursor)
+                            cursor.offset = f.tell()
+
+                    meta = dbx.files_upload_session_finish(f.read(CHUNK_SIZE), cursor, commit)
+
                 st.success(f"File uploaded successfully to {versioned_dropbox_path}")
                 log_activity(supabase.auth.get_user(st.session_state['token']).user.email, "upload", file_name)
                 return meta
         except Exception as e:
             st.error(f"Error uploading file to Dropbox: {e}")
             return None
+        
     def list_files(path):
         """List all files within the specified path."""
         dbx = dropbox_connect()
@@ -125,6 +144,7 @@ if st.session_state['user'] is not None:
         except Exception as e:
             st.error(f"Failed to list files: {e}")
             return []
+        
     def list_folders(path=""):
         """List all folders within the specified path."""
         dbx = dropbox_connect()
